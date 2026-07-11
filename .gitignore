@@ -1,0 +1,30 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE files
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Generated results
+results/figures/*.png
+results/figures/*.jpg
+results/figures/*.pdf
+results/tables/*.csv
+results/tables/*.xlsx
+
+# Keep folder structure
+!results/figures/.gitkeep
+!results/tables/.gitkeep
