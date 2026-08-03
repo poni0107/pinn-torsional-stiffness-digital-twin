@@ -1,30 +1,22 @@
-# Python cache
 __pycache__/
 *.py[cod]
-
-# Virtual environments
-venv/
 .venv/
+venv/
 env/
-
-# IDE files
-.vscode/
 .idea/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Operating system files
-.DS_Store
+.vscode/
+*.pt
+*.pth
+*.ckpt
+outputs/
+runs/
+quick_test/
+temp/
+tmp/
+*.log
+~$*.docx
 Thumbs.db
+desktop.ini
 
-# Generated results
-results/figures/*.png
-results/figures/*.jpg
-results/figures/*.pdf
-results/tables/*.csv
-results/tables/*.xlsx
-
-# Keep folder structure
-!results/figures/.gitkeep
-!results/tables/.gitkeep
+# The dataset is not redistributed until public-release permission is confirmed.
+data/jera1.mat
