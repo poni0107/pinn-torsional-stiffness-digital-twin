@@ -146,7 +146,11 @@ not required merely to inspect them.
 | Uniform sparse 401 | 401 | 401 | 26.219% | -2.9640 | FAIL |
 | Uniform sparse 121 | 121 | 121 | 28.354% | -3.6361 | FAIL due to aliasing |
 
-![Final stiffness comparison](results/figures/final_stiffness_comparison.png)
+## Figures
+
+Publication-quality figures are currently under final scientific and visual
+review. Numerical results and reproducibility files are available in the
+`results/tables` and `results/experiment_metrics` directories.
 
 ## Sparse sensor supervision
 
@@ -188,8 +192,6 @@ desktop CPU.** This is not a hard real-time proof. `RelativeStateNet` was
 pretrained offline on the full simulation trajectory, and online accuracy is
 lower than the full offline estimate.
 
-![Online tracking](results/figures/online_stiffness_tracking.png)
-
 ## Sampling limitations
 
 Uniform 121-point sampling has a 160 Hz sample rate and an 80 Hz Nyquist
@@ -197,8 +199,6 @@ frequency, below the approximately 228-233 Hz dominant torsional band; it is an
 aliasing failure. Uniform 401-point sampling satisfies the nominal Nyquist
 condition but provides only about 2.31 samples per dominant period, leaving
 relative-speed reconstruction and trapezoidal angle integration unreliable.
-
-![Sparse limitations](results/figures/sparse_limitations_comparison.png)
 
 ## Scientific limitations
 

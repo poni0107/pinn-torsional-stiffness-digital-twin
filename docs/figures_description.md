@@ -1,5 +1,11 @@
 # Final figure descriptions
 
+The previous draft figures have been temporarily removed from the `main`
+branch. Final publication figures will be produced only after the remaining
+scientific and visual review is complete. The descriptions below are retained
+as requirements for the future figure set; they do not indicate that the
+corresponding image files are currently published in the repository.
+
 ## `final_stiffness_comparison.png`
 
 - **Content:** reference degradation, full-rate clean estimate, 0.3% noise
