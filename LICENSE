@@ -1,0 +1,23 @@
+LICENSE STATUS NOTICE
+
+No open-source software license is granted by this file.
+
+This repository contains an academic research implementation developed by
+Marijana Jeremic, Lazar Krstic, Milos Ivanovic, Mihailo Lazarevic, and Milan
+Matijevic. It also acknowledges methodological ideas and the flexible
+motor-load reference implementation at https://github.com/imilos/pinn-motor.
+
+At the time this repository was prepared, no explicit LICENSE file could be
+identified in that reference repository. Under default copyright rules, public
+availability alone does not grant permission to reproduce, modify, or
+redistribute third-party code. Consequently, a permissive license such as MIT
+has not been assigned automatically.
+
+The code and research artifacts in this repository may be viewed for academic
+review. Permission for reuse, modification, or redistribution must be obtained
+from the relevant copyright holders until the authors confirm a final license
+and any required third-party notices.
+
+The numerical results and paper draft are research artifacts and are provided
+without warranty. This notice should be reviewed by the authors before a
+formal software release.

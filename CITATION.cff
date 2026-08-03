@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the accompanying MVM 2026 work."
+type: software
+title: "Digital Twin Design for Torsional Stiffness Estimation in Motor-Load Oscillatory Systems Using Physics-Informed Neural Networks"
+version: "1.0.0-research"
+repository-code: "https://github.com/poni0107/pinn-torsional-stiffness-digital-twin"
+authors:
+  - family-names: "Jeremić"
+    given-names: "Marijana"
+    orcid: "https://orcid.org/0009-0002-5620-1445"
+  - family-names: "Krstić"
+    given-names: "Lazar"
+  - family-names: "Ivanović"
+    given-names: "Miloš"
+  - family-names: "Lazarević"
+    given-names: "Mihailo"
+  - family-names: "Matijević"
+    given-names: "Milan"
+keywords:
+  - physics-informed neural networks
+  - digital twin
+  - torsional stiffness
+  - motor-load system
+  - weak formulation
