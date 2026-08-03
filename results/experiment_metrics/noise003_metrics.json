@@ -1,0 +1,83 @@
+{
+  "k_RMSE": 10.161213282519219,
+  "k_relative_RMSE_percent": 2.903203795005491,
+  "k_relative_RMSE_definition": "100 * k_RMSE / 350 Nm/rad",
+  "k_R2": 0.9513966335683187,
+  "k_MAE": 8.21088690197748,
+  "maximum_absolute_error": 17.229239666294006,
+  "estimated_k_start": 367.229239666294,
+  "estimated_k_final": 248.67120352978074,
+  "estimated_degradation_percent": 32.284476106599925,
+  "estimated_transition_center": 0.3846042637762678,
+  "estimated_transition_width": 0.048820267579199716,
+  "estimated_k_high": 367.2741989199991,
+  "estimated_k_low": 248.60458199058758,
+  "initial_stiffness_error_percent": 4.922639904655431,
+  "final_stiffness_error_percent": 1.4984504203186695,
+  "initial_error_percent": 4.922639904655431,
+  "final_error_percent": 1.4984504203186695,
+  "selected_seed": 2026,
+  "best_epoch": 6000,
+  "training_weak_loss": 0.025329305312211902,
+  "training_total_loss": 0.025329305312211902,
+  "weak_dynamic_loss": 0.003946884914789683,
+  "weak_kinematic_loss": 0.02138242039742222,
+  "window_length": 101,
+  "window_selection": "all",
+  "stride": 25,
+  "number_of_windows": 57,
+  "restart_count": 3,
+  "checkpoint_selection": "minimum training weak total loss only; k_true and true sigmoid parameters not used",
+  "quality_gate": "PASS",
+  "quality_gate_components": {
+    "PASS": {
+      "k_relative_RMSE_le_8_percent": true,
+      "k_R2_ge_0_85": true,
+      "initial_stiffness_error_le_10_percent": true,
+      "final_stiffness_error_le_10_percent": true
+    },
+    "ACCEPTABLE": {
+      "k_relative_RMSE_le_12_percent": true,
+      "k_R2_ge_0_70": true,
+      "initial_stiffness_error_le_15_percent": true,
+      "final_stiffness_error_le_15_percent": true
+    }
+  },
+  "experiment": "noise003_measurements1501",
+  "delta_R2": 0.9709726731326258,
+  "v_delta_R2": 0.9984279637491904,
+  "derivative_consistency_R2": 0.9998089140032737,
+  "true_k_start_evaluation_only": 350.0,
+  "true_k_final_evaluation_only": 245.0,
+  "true_transition_center_evaluation_only": 0.41250000000000003,
+  "true_transition_width_evaluation_only": 0.04125,
+  "sensor_data_origin": "synthetic ODE simulation driven by measured jera1.mat Mem",
+  "noise": 0.003,
+  "measurements": 1501,
+  "noise_seed": 3030,
+  "noise_model": "seeded differential encoder noise: std(epsilon)=noise*std(omega_m-omega_l), split +epsilon/2 and -epsilon/2",
+  "pretrain_epochs_total": 6500,
+  "state_quality_gate": {
+    "passed": true,
+    "thresholds": {
+      "delta_R2": 0.9,
+      "v_delta_R2": 0.95,
+      "derivative_consistency_R2": 0.95
+    }
+  },
+  "sampling_diagnostic": {
+    "selected_samples": 1501,
+    "duration_seconds": 0.75,
+    "nominal_sampling_rate_Hz": 2000.0,
+    "nominal_nyquist_Hz": 1000.0,
+    "maximum_sample_gap_seconds": 0.000500000000000056,
+    "conservative_nyquist_from_max_gap_Hz": 999.9999999998881,
+    "dominant_torsional_band_Hz": [
+      228.0,
+      233.0
+    ],
+    "torsional_band_below_conservative_nyquist": true
+  },
+  "delta_integrated_note": "derived with scipy cumulative_trapezoid using the actual selected measurement times",
+  "free_profile_second_order_baseline_csv": "outputs/run_relative_noise000_v2/results.csv"
+}
