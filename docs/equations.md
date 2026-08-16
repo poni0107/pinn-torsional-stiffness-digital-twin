@@ -116,9 +116,11 @@ degradation parameters.
 
 ## Training objective
 
-State pretraining combines normalized relative-angle data loss, relative-speed
-data loss, pointwise kinematic loss, and initial-condition loss. The final weak
-identification stage adds the weak dynamic residual. In the sparse+dense
+State pretraining combines encoder-derived data loss, pointwise kinematic loss,
+and initial-condition loss. The data term aggregates normalized relative-angle
+and relative-speed discrepancies. Their separate evaluation in the code is an
+implementation detail, not a change to the scientific objective. The final
+weak identification stage adds the weak dynamic residual. In the sparse+dense
 experiment, labelled losses are evaluated only at 751 sensor times while the
 kinematic and weak residuals use all 1501 collocation times.
 
@@ -126,22 +128,10 @@ The staged objective can be written compactly as
 
 ```math
 \mathcal{L}_{\mathrm{total}}
-=\lambda_{\delta}\mathcal{L}_{\delta}
-+\lambda_v\mathcal{L}_v
+=\lambda_{\mathrm{data}}\mathcal{L}_{\mathrm{data}}
 +\lambda_{\mathrm{kin}}\mathcal{L}_{\mathrm{kin}}
 +\lambda_{\mathrm{dyn}}\mathcal{L}_{\mathrm{dyn}}
 +\lambda_{\mathrm{IC}}\mathcal{L}_{\mathrm{IC}}.
-```
-
-For sparse-labelled joint refinement, the validated implementation uses
-
-```math
-\mathcal{L}_{\mathrm{sparse+dense}}
-=10\mathcal{L}_{\delta}
-+10\mathcal{L}_v
-+5\mathcal{L}_{\mathrm{kin}}
-+\mathcal{L}_{\mathrm{IC}}
-+\mathcal{L}_{\mathrm{dyn}}.
 ```
 
 Reference `k_true(t)` is not part of any objective term. It is read after model

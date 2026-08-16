@@ -40,6 +40,27 @@ All three deterministic stiffness restarts use seeds 2026, 2027, and 2028 and
 the same neutral physical initialization. No evaluation label participates in
 restart selection.
 
+## Training objective
+
+The public scientific notation follows the compact four-component objective
+used in the manuscript:
+
+```math
+\mathcal{L}_{\mathrm{total}}
+=\lambda_{\mathrm{data}}\mathcal{L}_{\mathrm{data}}
++\lambda_{\mathrm{kin}}\mathcal{L}_{\mathrm{kin}}
++\lambda_{\mathrm{dyn}}\mathcal{L}_{\mathrm{dyn}}
++\lambda_{\mathrm{IC}}\mathcal{L}_{\mathrm{IC}}.
+```
+
+$\mathcal{L}_{\mathrm{data}}$ aggregates supervision from the encoder-derived
+relative angle and relative speed. The code evaluates their normalized
+contributions separately for scaling and diagnostics, but those contributions
+remain an internal decomposition of the single data term. The other components
+enforce kinematic consistency, weak integrated dynamics, and the known initial
+condition, respectively. Stage-specific weights activate the terms required by
+state pretraining, stiffness identification, or sparse joint refinement.
+
 ## Noise experiment
 
 The 0.3% case adds seeded differential encoder noise. Its standard deviation is

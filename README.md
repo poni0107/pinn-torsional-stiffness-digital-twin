@@ -24,8 +24,6 @@ weak inverse formulation: it enforces kinematic and integrated dynamic
 consistency without the unreliable second derivative that limited the retained
 second-order baseline.
 
-![Weak first-order architecture](results/figures/architecture_weak_first_order.png)
-
 ## What is measured and what is simulated
 
 The local MATLAB input provides the recorded time coordinate $t$ and
@@ -115,18 +113,20 @@ The complete staged objective is written as
 
 ```math
 \mathcal{L}_{\mathrm{total}}
-= \lambda_{\delta}\mathcal{L}_{\delta}
- + \lambda_v\mathcal{L}_v
+= \lambda_{\mathrm{data}}\mathcal{L}_{\mathrm{data}}
  + \lambda_{\mathrm{kin}}\mathcal{L}_{\mathrm{kin}}
  + \lambda_{\mathrm{dyn}}\mathcal{L}_{\mathrm{dyn}}
  + \lambda_{\mathrm{IC}}\mathcal{L}_{\mathrm{IC}}.
 ```
 
-The active terms depend on the training stage: state pretraining uses the
-encoder-derived state losses, pointwise kinematic consistency, and initial
-conditions; weak stiffness identification uses the integrated residuals. The
-751-label experiment jointly refines the state and stiffness models using
-sparse labelled losses and dense physics collocation.
+Here, $\mathcal{L}_{\mathrm{data}}$ denotes supervision from the encoder-derived
+relative angle and relative speed. Their separate normalized contributions are
+an implementation-level decomposition of this single scientific data term.
+The active terms depend on the training stage: state pretraining uses the data,
+pointwise kinematic, and initial-condition terms; weak stiffness identification
+uses the integrated residuals. The 751-label experiment jointly refines the
+state and stiffness models using sparse labelled losses and dense physics
+collocation.
 
 The estimated stiffness is a bounded monotone sigmoid,
 
