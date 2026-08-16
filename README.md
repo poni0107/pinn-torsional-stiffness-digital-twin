@@ -12,12 +12,13 @@ electromagnetic torque + motor/load encoder speeds
     -> causal degradation monitoring
 ```
 
-In the simulation study, the available channels are recorded `t` and `Mem(t)`
-plus synthetic ODE encoder-speed responses `omega_m(t)` and `omega_l(t)`;
-`Jm`, `Jl`, and `bv` are known. `RelativeStateNet` is a time-coordinate network
-trained to reconstruct `delta_hat(t)` and `v_delta_hat(t)` from encoder-derived
-supervision, while a separate monotone four-parameter model estimates
-`k_hat(t)`. Torque enters the weak dynamic residual rather than serving as a
+In the simulation study, the available channels are recorded $t$ and
+$M_{\mathrm{em}}(t)$ plus synthetic ODE encoder-speed responses $\omega_m(t)$
+and $\omega_l(t)$; $J_m$, $J_l$, and $b_v$ are known. `RelativeStateNet` is a
+time-coordinate network trained to reconstruct $\hat{\delta}(t)$ and
+$\hat{v}_\delta(t)$ from encoder-derived supervision, while a separate monotone
+four-parameter model estimates $\hat{k}(t)$. Torque enters the weak dynamic
+residual rather than serving as a
 direct `RelativeStateNet` input. The main contribution is this first-order
 weak inverse formulation: it enforces kinematic and integrated dynamic
 consistency without the unreliable second derivative that limited the retained
@@ -27,8 +28,8 @@ second-order baseline.
 
 ## What is measured and what is simulated
 
-The local MATLAB input provides the recorded time coordinate `t` and
-electromagnetic torque profile `Mem(t)`. `THref`, if present, is not used by the
+The local MATLAB input provides the recorded time coordinate $t$ and
+electromagnetic torque profile $M_{\mathrm{em}}(t)$. `THref`, if present, is not used by the
 PINN. Motor and load encoder-speed responses are synthetic sensor signals
 obtained from the reference two-inertia ODE. This is therefore a simulation
 validation driven by a recorded input profile, not an experimental drivetrain
@@ -37,46 +38,158 @@ validation.
 The dataset is not redistributed because permission has not been confirmed.
 See [data/README.md](data/README.md) for the required schema.
 
-## Proposed formulation
+## Physical model and proposed formulation
 
-With
+The drivetrain is represented by an equivalent two-inertia system consisting
+of motor inertia $J_m$, load inertia $J_l$, viscous torsional damping $b_v$,
+time-varying torsional stiffness $k(t)$, and electromagnetic motor torque
+$M_{\mathrm{em}}(t)$. The governing equations are
 
-```text
-delta   = theta_m - theta_l
-v_delta = omega_m - omega_l,
+```math
+\dot{\theta}_m = \omega_m,
+\qquad
+\dot{\theta}_l = \omega_l,
 ```
 
-the network returns `delta_hat(t)` and `v_delta_hat(t)`. On every overlapping
-window `[t_a, t_b]`, the weak dynamic residual is
-
-```text
-v_delta_hat(t_b) - v_delta_hat(t_a)
-+ bv*(1/Jm + 1/Jl) * integral(v_delta_hat dt)
-+ (1/Jm + 1/Jl) * integral(k_hat(t)*delta_hat(t) dt)
-- (1/Jm) * integral(Mem(t) dt).
+```math
+\begin{aligned}
+J_m\dot{\omega}_m
+  &= M_{\mathrm{em}}(t)
+     - b_v\bigl(\omega_m-\omega_l\bigr)
+     - k(t)\bigl(\theta_m-\theta_l\bigr), \\
+J_l\dot{\omega}_l
+  &= b_v\bigl(\omega_m-\omega_l\bigr)
+     + k(t)\bigl(\theta_m-\theta_l\bigr).
+\end{aligned}
 ```
 
-The proposed branch never evaluates `delta_ddot`. The stiffness model is
+Define the relative angle, relative speed, and inverse-inertia sum as
 
-```text
-k_hat(t) = k_low + (k_high-k_low)/(1+exp((t-t_center)/width)),
+```math
+\delta(t)=\theta_m(t)-\theta_l(t),
+\qquad
+v_\delta(t)=\omega_m(t)-\omega_l(t),
+\qquad
+\Gamma=\frac{1}{J_m}+\frac{1}{J_l}.
 ```
 
-with physical bounds on both stiffness levels, transition center, and width.
+The equivalent first-order relative dynamics are
+
+```math
+\dot{\delta}=v_\delta,
+\qquad
+\dot{v}_\delta
+  + b_v\Gamma v_\delta
+  + k(t)\Gamma\delta
+  - \frac{M_{\mathrm{em}}(t)}{J_m}=0.
+```
+
+`RelativeStateNet` maps time to two outputs,
+
+```math
+t \longmapsto
+\left[\hat{\delta}(t),\,\hat{v}_\delta(t)\right],
+```
+
+and never evaluates $\ddot{\delta}$. On each overlapping interval
+$[t_a,t_b]$, the integrated kinematic and dynamic residuals are
+
+```math
+r_{\mathrm{kin}}^{[a,b]}
+= \hat{\delta}(t_b)-\hat{\delta}(t_a)
+  - \int_{t_a}^{t_b}\hat{v}_\delta(t)\,\mathrm{d}t,
+```
+
+```math
+\begin{aligned}
+r_{\mathrm{dyn}}^{[a,b]}
+={}& \hat{v}_\delta(t_b)-\hat{v}_\delta(t_a)
+ + b_v\Gamma\int_{t_a}^{t_b}\hat{v}_\delta(t)\,\mathrm{d}t \\
+&+ \Gamma\int_{t_a}^{t_b}
+       \hat{k}(t)\hat{\delta}(t)\,\mathrm{d}t
+ - \frac{1}{J_m}\int_{t_a}^{t_b}M_{\mathrm{em}}(t)\,\mathrm{d}t.
+\end{aligned}
+```
+
+The complete staged objective is written as
+
+```math
+\mathcal{L}_{\mathrm{total}}
+= \lambda_{\delta}\mathcal{L}_{\delta}
+ + \lambda_v\mathcal{L}_v
+ + \lambda_{\mathrm{kin}}\mathcal{L}_{\mathrm{kin}}
+ + \lambda_{\mathrm{dyn}}\mathcal{L}_{\mathrm{dyn}}
+ + \lambda_{\mathrm{IC}}\mathcal{L}_{\mathrm{IC}}.
+```
+
+The active terms depend on the training stage: state pretraining uses the
+encoder-derived state losses, pointwise kinematic consistency, and initial
+conditions; weak stiffness identification uses the integrated residuals. The
+751-label experiment jointly refines the state and stiffness models using
+sparse labelled losses and dense physics collocation.
+
+The estimated stiffness is a bounded monotone sigmoid,
+
+```math
+\hat{k}(t)
+= k_{\mathrm{low}}
+  \frac{k_{\mathrm{high}}-k_{\mathrm{low}}}
+  {1+\exp\!\left(\dfrac{t-t_c}{w}\right)},
+```
+
+subject to
+
+```math
+210 \le k_{\mathrm{low}} \le k_{\mathrm{high}}
+\le 367.5\ \mathrm{N\,m/rad},
+\qquad
+0 \le t_c \le T,
+\qquad
+0.005T \le w \le 0.25T.
+```
+
 Reference stiffness is excluded from loss construction, initialization, early
 stopping, checkpoint selection, and online updates; it is used only for
-post-training simulation metrics.
+post-training simulation metrics. Full derivations are in
+[docs/equations.md](docs/equations.md), and the training procedure is in
+[docs/methodology.md](docs/methodology.md).
 
-Full derivations are in [docs/equations.md](docs/equations.md) and the training
-procedure is in [docs/methodology.md](docs/methodology.md).
+## Evaluation metrics
+
+For $N$ evaluation times, the stiffness error metrics are
+
+```math
+\mathrm{RMSE}_k
+= \sqrt{\frac{1}{N}\sum_{i=1}^{N}
+  \left(\hat{k}_i-k_i\right)^2},
+```
+
+```math
+\mathrm{relative\ }k\text{-}\mathrm{RMSE}
+= 100\,\frac{\mathrm{RMSE}_k}{350\ \mathrm{N\,m/rad}},
+```
+
+```math
+R_k^2
+= 1-
+\frac{\sum_{i=1}^{N}\left(k_i-\hat{k}_i\right)^2}
+     {\sum_{i=1}^{N}\left(k_i-\bar{k}\right)^2}.
+```
+
+The reduction in sensor-labelled supervision for the 751-label experiment is
+
+```math
+\frac{1501-751}{1501}\times 100
+= 49.9667\% \approx 49.97\%.
+```
 
 ## Validated results
 
 ### Constant-stiffness controls
 
-All cases began from the same `288.75 N m/rad` initial estimate.
+All cases began from the same $288.75\ \mathrm{N\,m/rad}$ initial estimate.
 
-| Reference [N m/rad] | Estimate [N m/rad] | Relative error |
+| Reference [N·m/rad] | Estimate [N·m/rad] | Relative error |
 |---:|---:|---:|
 | 350 | 351.2077 | 0.3451% |
 | 300 | 300.2400 | 0.0800% |
@@ -91,10 +204,10 @@ All cases began from the same `288.75 N m/rad` initial estimate.
 | 751 labels + dense physics | 751 | 1501 | 3.7483% | 0.9190 | 4.9436% / 0.0116% |
 
 The reduced-supervision case removes 750 of 1501 sensor-labelled times, a
-`49.97%` reduction in labelled supervision. It still uses all 1501 unlabeled
+49.97% reduction in labelled supervision. It still uses all 1501 unlabeled
 physics-collocation points, so this is not a 49.97% reduction in total
 computation or physics evaluation. Its relative-angle reconstruction has
-`R²=0.9243`; relative-speed reconstruction is weaker at `R²=0.8897`, which is
+$R^2=0.9243$; relative-speed reconstruction is weaker at $R^2=0.8897$, which is
 reported as an auxiliary state-reconstruction limitation rather than hidden.
 
 ![Time-varying stiffness estimates](results/figures/time_varying_stiffness.png)
@@ -102,7 +215,7 @@ reported as an auxiliary state-reconstruction limitation rather than hidden.
 ### Baseline and sampling limits
 
 The retained second-order free-profile baseline gives `10.8668%` relative
-stiffness RMSE and `R²=0.3191`, compared with `2.8717%` and `R²=0.9524` for the
+stiffness RMSE and $R^2=0.3191$, compared with `2.8717%` and $R^2=0.9524$ for the
 proposed clean weak first-order model.
 
 Uniform 121-point sampling provides only `0.69` samples per dominant torsional
@@ -132,7 +245,7 @@ an online update.
 | Online stiffness R² | 0.7394 |
 | Final stiffness error | 7.471% |
 
-The 315 N m/rad threshold is triggered at `0.300 s`, approximately `83.9 ms`
+The $315\ \mathrm{N\,m/rad}$ threshold is triggered at `0.300 s`, approximately `83.9 ms`
 before the reference crossing at `0.383896 s`. This is causal near-real-time
 feasibility on the tested CPU, not hard-real-time certification.
 
@@ -152,6 +265,18 @@ scripts/                    public result/figure builders and run wrappers
 src/pinn_torsional_twin/    modular implementation
 tests/                      deterministic lightweight regression tests
 ```
+
+## Documentation and result provenance
+
+- [Governing equations](docs/equations.md)
+- [Methodology](docs/methodology.md)
+- [Validated experiments](docs/experiments.md)
+- [Reproducibility instructions](docs/reproducibility.md)
+- [Data provenance](docs/data_provenance.md)
+- [Result provenance](docs/results_provenance.md)
+- [Scientific limitations](docs/limitations.md)
+- [Provenance artifact guide](results/provenance/README.md)
+- [Machine-readable claim-to-artifact manifest](results/provenance/result_provenance.json)
 
 ## Installation
 
