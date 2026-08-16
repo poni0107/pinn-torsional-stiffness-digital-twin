@@ -1,0 +1,3 @@
+method,physics_form,k_relative_RMSE_percent,k_R2,metric_scope,source_artifact
+Second-order free profile,Strong differential; delta_ddot,10.866805671516197,0.31905018426357235,Direct saved inverse result,results/tables/table_4_ablation_study.csv
+Weak first-order sigmoid,"Weak integral, 101 points",2.871705971372545,0.9524455407400216,Proposed model,results/tables/table_4_ablation_study.csv

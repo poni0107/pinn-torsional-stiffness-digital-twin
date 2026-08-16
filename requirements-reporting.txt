@@ -1,0 +1,2 @@
+# Publication figures use only the scientific runtime dependencies.
+-r requirements.txt

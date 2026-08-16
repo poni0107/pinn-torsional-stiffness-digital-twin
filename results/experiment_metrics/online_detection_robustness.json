@@ -1,0 +1,48 @@
+{
+  "selected_adam_steps_per_update": 5,
+  "series_source": "results/tables/online_stiffness_series.csv",
+  "threshold_results": [
+    {
+      "threshold_fraction": 0.95,
+      "threshold_Nm_per_rad": 332.5,
+      "true_crossing_time_s": 0.346107739385566,
+      "ordinary_crossing_time_s": 0.05,
+      "ordinary_detection_delay_s": -0.296107739385566,
+      "three_consecutive_crossing_time_s": 0.1,
+      "three_consecutive_detection_delay_s": -0.246107739385566,
+      "early_alarm_update_count": 12,
+      "detected_ordinary": true,
+      "detected_three_consecutive": true
+    },
+    {
+      "threshold_fraction": 0.9,
+      "threshold_Nm_per_rad": 315.0,
+      "true_crossing_time_s": 0.3838958280173248,
+      "ordinary_crossing_time_s": 0.3,
+      "ordinary_detection_delay_s": -0.08389582801732481,
+      "three_consecutive_crossing_time_s": 0.35000000000000003,
+      "three_consecutive_detection_delay_s": -0.03389582801732477,
+      "early_alarm_update_count": 4,
+      "detected_ordinary": true,
+      "detected_three_consecutive": true
+    },
+    {
+      "threshold_fraction": 0.85,
+      "threshold_Nm_per_rad": 297.5,
+      "true_crossing_time_s": 0.41248067687164724,
+      "ordinary_crossing_time_s": 0.45,
+      "ordinary_detection_delay_s": 0.037519323128352766,
+      "three_consecutive_crossing_time_s": 0.5,
+      "three_consecutive_detection_delay_s": 0.08751932312835276,
+      "early_alarm_update_count": 0,
+      "detected_ordinary": true,
+      "detected_three_consecutive": true
+    }
+  ],
+  "online_initial_stiffness": 328.1816113638057,
+  "online_final_stiffness": 263.30482178985903,
+  "estimated_degradation_percent": 19.768563297724654,
+  "true_degradation_percent": 30.0,
+  "final_degradation_error_percentage_points": 10.231436702275346,
+  "final_stiffness_error_percent": 7.471355832595524
+}

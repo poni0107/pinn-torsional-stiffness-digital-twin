@@ -1,10 +1,8 @@
-# MVM 2026 paper
+# Manuscript status
 
-The intended manuscript artifact is `MVM2026_working_draft.pdf`. It is not
-included in this repository snapshot because a verified PDF version was not
-available and the local environment could not safely convert the supplied
-DOCX source.
+The manuscript is under author revision and is intentionally not included in
+this repository. Local DOCX/PDF drafts are not the final publication and must
+not be treated as a version of record.
 
-The source document is a working manuscript and does not represent the final
-published version of record. DOCX files are not distributed in this
-repository.
+Repository documentation, validated metrics, and reproducibility material are
+maintained independently of the private manuscript working files.

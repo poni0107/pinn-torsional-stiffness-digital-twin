@@ -1,6 +1,6 @@
 """MVM2026 PINN digital twin based on relative torsional dynamics.
 
-The real time vector and Mem input are loaded from jera1.mat. Encoder/state
+The input time coordinate and Mem profile are loaded from jera1.mat. Encoder/state
 responses are synthetic ODE data. THref is intentionally not used in any loss.
 """
 from __future__ import annotations
@@ -1147,13 +1147,13 @@ def create_final_sigmoid_summary(baseline_csv):
     if baseline_csv is not None and Path(baseline_csv).exists():
         baseline=np.genfromtxt(baseline_csv,delimiter=",",names=True)
         ax.plot(baseline["t"],baseline["k_PINN"],color="tab:gray",lw=1.8,label="free-profile second-order baseline")
-    ax.set(xlabel="t [s]",ylabel="k [Nm/rad]",title="Final weak-sigmoid robustness comparison");ax.grid();ax.legend()
+    ax.set(xlabel="t [s]",ylabel="k [Nm/rad]",title="Validated weak-sigmoid scenario comparison");ax.grid();ax.legend()
     fig.tight_layout();fig.savefig(FINAL_FIGURES_DIR/"final_stiffness_comparison.png",dpi=200);plt.close(fig)
 
     display_rows=[row for row in rows if row["experiment"] in main_names]
     display_labels=[next(item[1] for item in loaded if item[0]==row["experiment"]) for row in display_rows]
     display_colors=[main_colors[row["experiment"]] for row in display_rows];x=np.arange(len(display_rows));fig,axes=plt.subplots(1,3,figsize=(14,4))
-    axes[0].bar(x,[row["k_relative_RMSE_percent"] for row in display_rows],color=display_colors);axes[0].axhline(8,color="k",ls="--",label="robust PASS")
+    axes[0].bar(x,[row["k_relative_RMSE_percent"] for row in display_rows],color=display_colors);axes[0].axhline(8,color="k",ls="--",label="8% stiffness-RMSE criterion")
     axes[0].set(ylabel="relative RMSE [%]",title="Stiffness relative RMSE")
     axes[1].bar(x,[row["k_R2"] for row in display_rows],color=display_colors);axes[1].axhline(.85,color="k",ls="--");axes[1].set(ylabel="R²",title="Stiffness R²")
     width=.36;axes[2].bar(x-width/2,[row["initial_error_percent"] for row in display_rows],width,label="initial")
@@ -1168,7 +1168,7 @@ def create_final_sigmoid_summary(baseline_csv):
     ax.plot(main_data["t"],main_data["k_true"],"k--",lw=2,label="k true")
     for experiment,color in (("noise0_measurements121","tab:red"),("noise0_measurements401","tab:green")):
         label,data=sparse_loaded[experiment];ax.plot(data["t"],data["k_weak_sigmoid"],color=color,label=label)
-    ax.set(xlabel="t [s]",ylabel="k [Nm/rad]",title="Failed sparse stiffness estimates");ax.grid();ax.legend()
+    ax.set(xlabel="t [s]",ylabel="k [Nm/rad]",title="Reduced-grid stiffness limitation cases");ax.grid();ax.legend()
     axes[0,1].axis("off");axes[0,1].text(.02,.95,
         "Sparse limitations\n\n121 points: Fs=160 Hz, Nyquist=80 Hz\n"
         "Dominant torsional band: 228-233 Hz -> aliasing\n\n"
@@ -1203,20 +1203,20 @@ def create_final_sigmoid_summary(baseline_csv):
             constants.append({"true_k":float(row["true_k"]),"estimated_k":float(row["estimated_k"]),
                 "relative_error_percent":float(row["relative_error_percent"]),"quality_gate":row["quality_gate"]})
     sparse401_quality=next(row["quality_gate"] for row in rows if row["experiment"]=="noise0_measurements401")
-    sparse401_conclusion=("The physically valid uniform 401-point reduced-data test passes the robustness gate."
-        if sparse401_quality=="PASS" else f"The physically valid uniform 401-point reduced-data test is retained with quality gate {sparse401_quality}.")
+    sparse401_conclusion=("The uniform 401-point reduced-data test meets the declared composite criterion."
+        if sparse401_quality=="PASS" else "The uniform 401-point reduced-data test is retained as a sampling limitation.")
     sparse751_quality=next(row["quality_gate"] for row in rows if row["experiment"]=="noise0_measurements751")
-    sparse751_conclusion=("The final uniform 751-point reduced-data test passes the robustness gate."
-        if sparse751_quality=="PASS" else f"The final uniform 751-point reduced-data test is retained with quality gate {sparse751_quality}.")
+    sparse751_conclusion=("The uniform 751-point reduced-data test meets the declared composite criterion."
+        if sparse751_quality=="PASS" else "The uniform 751-point reduced-grid test is retained as a state-reconstruction limitation.")
     densephysics_quality=next(row["quality_gate"] for row in rows if row["experiment"]=="noise0_measurements751_densephysics")
-    densephysics_conclusion=("Sparse supervision with 751 sensor labels and 1501 unlabeled physics points passes the final gate."
+    densephysics_conclusion=("Sparse supervision with 751 sensor labels and 1501 unlabeled physics points meets the declared composite criterion."
         if densephysics_quality=="PASS" else
-        "Sparse supervision with dense physics passes every stiffness-identification threshold, but the composite gate remains FAIL because v_delta_R2 is below 0.95.")
+        "Sparse supervision with dense physics meets every stiffness-identification threshold, while the composite state criterion remains unmet because v_delta_R2 is below 0.95.")
     summary={"sigmoid_experiments":{row["experiment"]:row for row in rows},
         "constant_stiffness_validations":constants,
         "selection_note":"All sigmoid checkpoints selected only by minimum training weak total loss; k_true used after selection for evaluation.",
-        "data_note":"Encoder responses are synthetic ODE sensor data driven by the measured Mem(t) profile from jera1.mat.",
-        "scientific_conclusion":"The weak first-order sigmoid twin is accurate for full-rate clean and 0.3% differential-noise data. Uniform 121-point sampling is an aliasing FAIL. "+sparse401_conclusion+" "+sparse751_conclusion+" "+densephysics_conclusion,
+        "data_note":"Encoder responses are synthetic ODE sensor data driven by the recorded Mem(t) profile from jera1.mat.",
+        "scientific_conclusion":"The weak first-order sigmoid model meets the stated stiffness criteria for full-rate clean and 0.3% differential-noise data. Uniform 121-point sampling is aliased. "+sparse401_conclusion+" "+sparse751_conclusion+" "+densephysics_conclusion,
         "sampling_diagnostic":{"full_sample_rate_Hz":2000.0,
             "sparse121_sample_rate_Hz":160.0,"sparse121_Nyquist_Hz":80.0,
             "sparse401_sample_rate_Hz":533.3333333333334,"sparse401_Nyquist_Hz":266.6666666666667,
@@ -1225,12 +1225,12 @@ def create_final_sigmoid_summary(baseline_csv):
         "limitations":[
             "The study uses synthetic ODE encoder responses; only t and Mem originate from jera1.mat.",
             "The 0.3% experiment defines noise relative to the differential encoder channel and splits it between the two encoders; it is not independent 0.3% noise scaled by the much larger absolute motor/load speeds.",
-            "Uniform 121-point sampling aliases the dominant torsional mode, so the RelativeStateNet state gate fails even after 9500 epochs.",
+            "Uniform 121-point sampling aliases the dominant torsional mode, so the RelativeStateNet does not meet the state criterion even after 9500 epochs.",
             "In the sparse751+dense-physics experiment, stiffness identification satisfies all prescribed k(t) thresholds, but v_delta_R2=0.88969 fails the required 0.95 state threshold.",
             "All three deterministic full-batch restarts follow the same path from the mandated identical neutral initialization.",
             "The main and noise estimates place k_high near the imposed upper bound, so initial stiffness is the least accurately identified endpoint."]}
     (FINAL_TABLES_DIR/"final_results_summary.json").write_text(json.dumps(summary,indent=2),encoding="utf-8")
-    print("Final sigmoid robustness summary saved.");return summary
+    print("Final sigmoid scenario summary saved.");return summary
 
 
 def online_window_terms(state_net,t,mem,start,stop,duration,c,delta_scale):

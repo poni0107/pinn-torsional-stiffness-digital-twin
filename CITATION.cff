@@ -1,8 +1,7 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite the accompanying MVM 2026 work."
+message: "Please cite this software repository and the associated publication when its bibliographic record becomes available."
 type: software
 title: "Digital Twin Design for Torsional Stiffness Estimation in Motor-Load Oscillatory Systems Using Physics-Informed Neural Networks"
-version: "1.0.0-research"
 repository-code: "https://github.com/poni0107/pinn-torsional-stiffness-digital-twin"
 authors:
   - family-names: "Jeremić"
@@ -22,3 +21,4 @@ keywords:
   - torsional stiffness
   - motor-load system
   - weak formulation
+  - degradation monitoring

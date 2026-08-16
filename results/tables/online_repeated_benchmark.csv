@@ -1,0 +1,4 @@
+adam_steps_per_update,repetitions,total_updates,mean_latency_ms,median_latency_ms,standard_deviation_latency_ms,p95_latency_ms,p99_latency_ms,maximum_latency_ms,deadline_miss_count,online_k_relative_RMSE_percent,online_k_R2,final_stiffness_error_percent,selected,source_artifact
+3,10,290,1.9661586206896549,1.58875,0.8844185830513365,3.7803500000000003,4.888807000000011,5.8089,0,6.871069507258187,0.728129445895542,8.81352187387165,False,results/experiment_metrics/online_adam_steps_comparison.json
+4,10,290,2.540035172413793,2.10875,1.0588344415144264,4.683465000000001,6.114000000000013,9.054,0,6.810499248979997,0.7329015379368871,8.132155509540622,False,results/experiment_metrics/online_adam_steps_comparison.json
+5,10,290,2.540989655172414,2.2725999999999997,0.7433057680430774,4.030915,6.464917000000001,6.8162,0,6.726746463339008,0.7394304837038688,7.471355832595524,True,results/experiment_metrics/online_adam_steps_comparison.json

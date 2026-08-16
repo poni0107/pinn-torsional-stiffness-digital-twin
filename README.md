@@ -1,246 +1,218 @@
-# PINN Digital Twin for Torsional Stiffness Estimation
+# Physics-informed digital twin for torsional-stiffness degradation
 
-## Project overview
-
-This repository was developed for **Digital Twin Design for Torsional
-Stiffness Estimation in Motor-Load Oscillatory Systems Using Physics-Informed
-Neural Networks**.
-
-It provides a reproducible simulation study of a motor-load digital twin that
-identifies a degrading torsional stiffness profile from encoder-speed
-information and a measured motor-torque profile. The final proposed model uses
-relative coordinates, a first-order state network, and weak integral physics.
-
-## Scientific objective
-
-The objective is to estimate the unknown time-varying shaft stiffness `k(t)`
-without including the reference stiffness or its true sigmoid parameters in
-the training loss, initialization, checkpoint selection, early stopping, or
-restart selection. Reference stiffness is used only after training for
-simulation evaluation.
-
-## Main contribution
-
-The proposed method combines:
-
-- a Fourier-feature `RelativeStateNet` that predicts relative angle and speed;
-- a first-order formulation that avoids unreliable second derivatives;
-- weak, windowed integral residuals evaluated with the trapezoidal rule;
-- a physically constrained monotone sigmoid representation of stiffness;
-- staged sparse sensor supervision with dense unlabeled physics collocation;
-- a causal sliding-window near-real-time benchmark.
-
-## Data origin
-
-The real time vector `t` and motor torque `Mem` are read from `jera1.mat`.
-`THref` is intentionally excluded from the PINN loss. The angular positions and
-encoder speeds are synthetic sensor responses produced with the reference ODE
-model. Therefore, this is a simulation validation driven by a measured input
-profile, not an experiment with measured encoder outputs.
-
-Dataset redistribution permission has not been confirmed. See
-[`data/README.md`](data/README.md) and place an authorized local copy at
-`data/jera1.mat`.
-
-## Physical two-mass model
-
-The motor and load equations are
+This repository implements a simulation-validated digital twin for estimating
+time-varying torsional stiffness in a two-inertia motor-load system. The public
+workflow is centered on
 
 ```text
-Jm * theta_m_ddot + bv * (omega_m - omega_l)
-    + k(t) * (theta_m - theta_l) = Mem(t)
-
-Jl * theta_l_ddot - bv * (omega_m - omega_l)
-    - k(t) * (theta_m - theta_l) = 0
+electromagnetic torque + motor/load encoder speeds
+    -> relative-state reconstruction
+    -> weak first-order physics constraints
+    -> inverse time-varying stiffness estimation
+    -> causal degradation monitoring
 ```
 
-The reference simulation uses a smooth degradation from approximately 350 to
-245 Nm/rad.
+In the simulation study, the available channels are recorded `t` and `Mem(t)`
+plus synthetic ODE encoder-speed responses `omega_m(t)` and `omega_l(t)`;
+`Jm`, `Jl`, and `bv` are known. `RelativeStateNet` is a time-coordinate network
+trained to reconstruct `delta_hat(t)` and `v_delta_hat(t)` from encoder-derived
+supervision, while a separate monotone four-parameter model estimates
+`k_hat(t)`. Torque enters the weak dynamic residual rather than serving as a
+direct `RelativeStateNet` input. The main contribution is this first-order
+weak inverse formulation: it enforces kinematic and integrated dynamic
+consistency without the unreliable second derivative that limited the retained
+second-order baseline.
 
-## Relative first-order formulation
+![Weak first-order architecture](results/figures/architecture_weak_first_order.png)
 
-With `delta = theta_m - theta_l` and `v_delta = omega_m - omega_l`, the proposed
-model uses
+## What is measured and what is simulated
+
+The local MATLAB input provides the recorded time coordinate `t` and
+electromagnetic torque profile `Mem(t)`. `THref`, if present, is not used by the
+PINN. Motor and load encoder-speed responses are synthetic sensor signals
+obtained from the reference two-inertia ODE. This is therefore a simulation
+validation driven by a recorded input profile, not an experimental drivetrain
+validation.
+
+The dataset is not redistributed because permission has not been confirmed.
+See [data/README.md](data/README.md) for the required schema.
+
+## Proposed formulation
+
+With
 
 ```text
-r_kinematic = d(delta_hat)/dt - v_delta_hat
-
-r_dynamic = d(v_delta_hat)/dt
-    + bv * (1/Jm + 1/Jl) * v_delta_hat
-    + k(t) * (1/Jm + 1/Jl) * delta_hat
-    - Mem/Jm
+delta   = theta_m - theta_l
+v_delta = omega_m - omega_l,
 ```
 
-`RelativeStateNet` outputs both `delta_hat` and `v_delta_hat`; no
-`delta_ddot` is computed in the proposed branch.
-
-## Weak physics-informed residual
-
-For each causal or offline time window `[t_a, t_b]`, the dynamic residual is
+the network returns `delta_hat(t)` and `v_delta_hat(t)`. On every overlapping
+window `[t_a, t_b]`, the weak dynamic residual is
 
 ```text
-r_weak = v_delta_hat(t_b) - v_delta_hat(t_a)
-    + bv * (1/Jm + 1/Jl) * integral(v_delta_hat dt)
-    + (1/Jm + 1/Jl) * integral(k(t) * delta_hat(t) dt)
-    - (1/Jm) * integral(Mem(t) dt)
+v_delta_hat(t_b) - v_delta_hat(t_a)
++ bv*(1/Jm + 1/Jl) * integral(v_delta_hat dt)
++ (1/Jm + 1/Jl) * integral(k_hat(t)*delta_hat(t) dt)
+- (1/Jm) * integral(Mem(t) dt).
 ```
 
-The integral kinematic residual is
+The proposed branch never evaluates `delta_ddot`. The stiffness model is
 
 ```text
-r_kinematic_weak = delta_hat(t_b) - delta_hat(t_a)
-    - integral(v_delta_hat dt)
+k_hat(t) = k_low + (k_high-k_low)/(1+exp((t-t_center)/width)),
 ```
 
-The final offline configuration uses 101 collocation points per window, stride
-25, all valid overlapping windows, and `torch.trapz` integration.
+with physical bounds on both stiffness levels, transition center, and width.
+Reference stiffness is excluded from loss construction, initialization, early
+stopping, checkpoint selection, and online updates; it is used only for
+post-training simulation metrics.
 
-## Repository structure
+Full derivations are in [docs/equations.md](docs/equations.md) and the training
+procedure is in [docs/methodology.md](docs/methodology.md).
+
+## Validated results
+
+### Constant-stiffness controls
+
+All cases began from the same `288.75 N m/rad` initial estimate.
+
+| Reference [N m/rad] | Estimate [N m/rad] | Relative error |
+|---:|---:|---:|
+| 350 | 351.2077 | 0.3451% |
+| 300 | 300.2400 | 0.0800% |
+| 245 | 245.2341 | 0.0956% |
+
+### Time-varying degradation
+
+| Scenario | Sensor labels | Physics points | Relative stiffness RMSE | Stiffness R² | Initial/final error |
+|---|---:|---:|---:|---:|---:|
+| Full-rate clean | 1501 | 1501 | 2.8717% | 0.9524 | 4.9128% / 0.2962% |
+| 0.3% differential noise | 1501 | 1501 | 2.9032% | 0.9514 | 4.9226% / 1.4985% |
+| 751 labels + dense physics | 751 | 1501 | 3.7483% | 0.9190 | 4.9436% / 0.0116% |
+
+The reduced-supervision case removes 750 of 1501 sensor-labelled times, a
+`49.97%` reduction in labelled supervision. It still uses all 1501 unlabeled
+physics-collocation points, so this is not a 49.97% reduction in total
+computation or physics evaluation. Its relative-angle reconstruction has
+`R²=0.9243`; relative-speed reconstruction is weaker at `R²=0.8897`, which is
+reported as an auxiliary state-reconstruction limitation rather than hidden.
+
+![Time-varying stiffness estimates](results/figures/time_varying_stiffness.png)
+
+### Baseline and sampling limits
+
+The retained second-order free-profile baseline gives `10.8668%` relative
+stiffness RMSE and `R²=0.3191`, compared with `2.8717%` and `R²=0.9524` for the
+proposed clean weak first-order model.
+
+Uniform 121-point sampling provides only `0.69` samples per dominant torsional
+period and aliases the approximately `228-233 Hz` response band. Uniform
+401-point sampling provides `2.31` samples per period; nominal Nyquist is met,
+but state reconstruction and trapezoidal angle integration remain unreliable.
+These experiments are retained as sampling limitations, not as successful
+reduced-supervision results.
+
+### Causal online benchmark
+
+The final benchmark compares 3, 4, and 5 Adam steps per update over ten
+repetitions each. The reported five-step configuration was selected after all
+runs by the declared deadline/accuracy rule; reference stiffness never enters
+an online update.
+
+| Quantity | Final repeated benchmark |
+|---|---:|
+| Window / stride | 101 / 50 samples |
+| Update period | 25.000 ms |
+| Repetitions / timed updates | 10 / 290 |
+| Mean / median latency | 2.541 / 2.273 ms |
+| P95 / P99 latency | 4.031 / 6.465 ms |
+| Maximum latency | 6.816 ms |
+| Deadline exceedances | 0 / 290 |
+| Online relative stiffness RMSE | 6.727% |
+| Online stiffness R² | 0.7394 |
+| Final stiffness error | 7.471% |
+
+The 315 N m/rad threshold is triggered at `0.300 s`, approximately `83.9 ms`
+before the reference crossing at `0.383896 s`. This is causal near-real-time
+feasibility on the tested CPU, not hard-real-time certification.
+
+![Causal monitoring and repeated latency](results/figures/causal_online_monitoring.png)
+
+## Repository layout
 
 ```text
-data/       local MAT-file interface and data notes
-src/        final implementation and diagnostic utilities
-scripts/    reproducible Windows CMD entry points
-results/    committed final tables, metrics, and figures
-docs/       methodology, history, and figure descriptions
-paper/      working-paper notice and PDF draft when available
-outputs/    ignored training checkpoints and intermediate artifacts
+configs/                    portable experiment definitions
+data/                       input schema; private MAT data are ignored
+docs/                       equations, methods, experiments, provenance, limits
+results/experiment_metrics/ validated machine-readable metrics
+results/tables/             raw and normalized public tables
+results/figures/            generated PNG/PDF figures
+results/provenance/         claim-to-artifact mapping and checksums
+scripts/                    public result/figure builders and run wrappers
+src/pinn_torsional_twin/    modular implementation
+tests/                      deterministic lightweight regression tests
 ```
 
 ## Installation
 
-Python 3.12 was used for the reported benchmark.
+Python 3.12 is recommended.
 
-```cmd
+```bash
 python -m venv .venv
-.venv\Scripts\activate
-python -m pip install -r requirements.txt
-python src\check_data.py
 ```
 
-The final environment used PyTorch 2.5.1 (CPU), NumPy 2.0.2, SciPy 1.16.0,
-and Matplotlib 3.10.0.
+Activate the environment with `.venv\Scripts\activate` on Windows or
+`source .venv/bin/activate` on Linux/macOS, then run
 
-## Reproduction commands
-
-Run from the repository root:
-
-```cmd
-scripts\run_main.cmd
-scripts\run_noise.cmd
-scripts\run_sparse_densephysics.cmd
-scripts\run_online_benchmark.cmd
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e .
 ```
 
-These commands create ignored intermediate checkpoints under `outputs/`. The
-committed files in `results/` are the preserved final results; long training is
-not required merely to inspect them.
+## Reproducing public tables and figures
 
-## Main results
+These commands do not train a network and do not require the private dataset:
 
-| Scenario | Sensor labels | Physics points | Relative k-RMSE | k R² | Interpretation |
-|---|---:|---:|---:|---:|---|
-| Full-rate clean | 1501 | 1501 | 2.872% | 0.9524 | PASS |
-| Noise 0.3% | 1501 | 1501 | 2.903% | 0.9514 | PASS |
-| Sparse supervision + dense physics | 751 | 1501 | 3.748% | 0.9190 | Stiffness PASS; state reconstruction partial |
-| Uniform sparse 401 | 401 | 401 | 26.219% | -2.9640 | FAIL |
-| Uniform sparse 121 | 121 | 121 | 28.354% | -3.6361 | FAIL due to aliasing |
+```bash
+python scripts/build_public_results.py
+python scripts/generate_publication_figures.py
+python -m unittest discover -s tests -v
+```
 
-## Figures
+Long experiment reproduction requires an authorized `data/jera1.mat` copy:
 
-Publication-quality figures are currently under final scientific and visual
-review. Numerical results and reproducibility files are available in the
-`results/tables` and `results/experiment_metrics` directories.
+```bash
+pinn-torsional-twin check-data --mat data/jera1.mat
+pinn-torsional-twin run --config configs/main_clean.toml --mat data/jera1.mat
+pinn-torsional-twin run --config configs/noise_0p3pct.toml --mat data/jera1.mat
+pinn-torsional-twin run --config configs/sparse751_dense_physics.toml --mat data/jera1.mat
+```
 
-## Sparse sensor supervision
+See [docs/reproducibility.md](docs/reproducibility.md) for staged commands,
+expected outputs, and the online benchmark procedure.
 
-The final sparse-supervision experiment uses labels only at 751 uniformly
-spaced sensor times and 1501 dense unlabeled physics collocation points. The
-collocation grid uses known time and `Mem(t)` but no true state or stiffness
-labels. No RelativeStateNet checkpoint trained on all 1501 sensor labels is
-loaded.
+## Scientific scope and limitations
 
-The result must be reported transparently:
+The current evidence is limited to a two-inertia simulation with known `Jm`,
+`Jl`, and `bv`; synthetic encoder responses; a bounded monotone stiffness
+model; and one recorded torque profile. Experimental drivetrain validation,
+independently varying external load torque, arbitrary non-monotone recovery,
+multiple faults, and hard-real-time certification are outside the demonstrated
+scope. The online estimator also relies on an offline-pretrained
+`RelativeStateNet`.
 
-- `stiffness_identification_gate`: **PASS**;
-- `state_reconstruction_gate`: **PARTIAL** (`v_delta R² = 0.88969`);
-- `overall_composite_gate`: **FAIL**.
+The estimated degradation trajectory may support future predictive-maintenance
+or adaptive-control research, but neither downstream application is implemented
+or validated here.
 
-Thus the stiffness curve satisfies every prescribed identification threshold,
-but the experiment is not presented as a full composite PASS.
+Complete limitations are documented in [docs/limitations.md](docs/limitations.md).
 
-## Online near-real-time benchmark
+## Citation and reuse status
 
-Selected causal configuration on the tested desktop CPU:
+Citation metadata are provided in [CITATION.cff](CITATION.cff) without a DOI or
+claimed publication status. The manuscript is deliberately not included while
+it remains under author revision.
 
-| Quantity | Value |
-|---|---:|
-| Stride | 50 samples |
-| Adam steps/update | 5 |
-| Update period | 25.000 ms |
-| Mean latency | 13.781 ms |
-| Median latency | 14.272 ms |
-| p95 latency | 17.166 ms |
-| Maximum latency | 19.701 ms |
-| Missed deadlines | 0/29 |
-| Online relative k-RMSE | 6.727% |
-| Online k R² | 0.7394 |
-| Final stiffness error | 7.471% |
-
-**Causal near-real-time stiffness monitoring was demonstrated on the tested
-desktop CPU.** This is not a hard real-time proof. `RelativeStateNet` was
-pretrained offline on the full simulation trajectory, and online accuracy is
-lower than the full offline estimate.
-
-## Sampling limitations
-
-Uniform 121-point sampling has a 160 Hz sample rate and an 80 Hz Nyquist
-frequency, below the approximately 228-233 Hz dominant torsional band; it is an
-aliasing failure. Uniform 401-point sampling satisfies the nominal Nyquist
-condition but provides only about 2.31 samples per dominant period, leaving
-relative-speed reconstruction and trapezoidal angle integration unreliable.
-
-## Scientific limitations
-
-- Only `t` and `Mem` originate from `jera1.mat`; encoder outputs are simulated.
-- The reference stiffness is known only because this is a simulation study.
-- Identifiability depends on the torque excitation and known inertial/damping parameters.
-- The main and noise estimates place the initial stiffness near the imposed upper bound.
-- Near-real-time measurements were obtained on one desktop CPU and do not establish worst-case hard real-time behavior.
-- Sparse751+dense-physics stiffness identification passes, but the auxiliary relative-speed reconstruction threshold does not.
-
-## Related work and reference implementation
-
-The project was methodologically developed from the flexible motor-load example
-and PINN code at [`imilos/pinn-motor`](https://github.com/imilos/pinn-motor)
-and the related work *Inverse Modeling of Flexible Rotational Systems via
-Hybrid Physics-Informed and Data-Driven Learning*.
-
-The original work addresses inverse mapping toward the drive torque and uses an
-RFF-LSTM surrogate. This repository instead estimates a time-varying torsional
-stiffness and introduces relative coordinates, a first-order
-`RelativeStateNet`, and a weak/integral physics residual. It also evaluates
-degradation, noise, sparse supervision, and causal online updating. The
-original implementation is credited as related work and is not presented as
-an original contribution of this repository.
-
-## Citation
-
-Citation metadata are provided in [`CITATION.cff`](CITATION.cff). Until the
-conference record is finalized, cite the project as the accompanying MVM 2026
-working paper.
-
-## Authors
-
-- Marijana Jeremić — University of Kragujevac, Serbia
-- Lazar Krstić — University of Kragujevac, Serbia
-- Miloš Ivanović — Faculty of Information Studies, Novo Mesto, Slovenia
-- Mihailo Lazarević — University of Belgrade, Serbia
-- Milan Matijević — University of Kragujevac, Serbia
-
-## License
-
-No permissive open-source license has been assigned automatically because the
-reference `imilos/pinn-motor` repository does not expose a clear license and
-third-party provenance must be confirmed. See [`LICENSE`](LICENSE). Author
-confirmation is required before a formal licensed release.
+No open-source license is currently granted. The existing [LICENSE](LICENSE)
+status notice remains in force until the authors explicitly approve a software
+license and third-party provenance is resolved.

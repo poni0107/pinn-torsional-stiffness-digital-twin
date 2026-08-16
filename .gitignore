@@ -21,3 +21,35 @@ desktop.ini
 
 # The dataset is not redistributed until public-release permission is confirmed.
 data/jera1.mat
+
+# Local manuscript and supplementary drafts are not publication artifacts.
+paper/*
+!paper/README.md
+supplementary/
+
+# Local review inventories contain machine-specific paths or manuscript state.
+docs/confirmed_results_inventory.md
+docs/local_file_manifest.md
+docs/mvm2026_requirement_compliance.md
+docs/publication_figure_captions.md
+docs/reference_verification.md
+docs/scientific_integrity_audit.md
+docs/scientific_package_handoff.md
+docs/scientific_package_qa.md
+results/experiment_metrics/confirmed_results_inventory.json
+results/experiment_metrics/publication_figure_manifest.json
+results/experiment_metrics/requirement_compliance.json
+results/experiment_metrics/scientific_integrity_audit.json
+results/experiment_metrics/scientific_package_manifest.json
+results/experiment_metrics/scientific_package_qa.json
+
+# Superseded local reporting/manuscript utilities are retained outside the
+# publication surface; the public replacements are explicitly versioned.
+scripts/build_publication_figures_and_tables.py
+scripts/build_result_audits.py
+scripts/build_scientific_documents.py
+scripts/validate_scientific_package.py
+results/tables/online_latency_samples.csv
+results/tables/online_stiffness_series.csv
+results/tables/scientific_tables.md
+results/tables/table_*_*.md

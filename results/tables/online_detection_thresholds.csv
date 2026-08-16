@@ -1,0 +1,4 @@
+threshold_fraction,threshold_Nm_per_rad,true_crossing_time_s,ordinary_crossing_time_s,ordinary_detection_delay_s,three_consecutive_crossing_time_s,three_consecutive_detection_delay_s,early_alarm_update_count,detected_ordinary,detected_three_consecutive
+0.95,332.5,0.346107739385566,0.05,-0.296107739385566,0.1,-0.246107739385566,12,True,True
+0.9,315.0,0.3838958280173248,0.3,-0.08389582801732481,0.35000000000000003,-0.03389582801732477,4,True,True
+0.85,297.5,0.41248067687164724,0.45,0.037519323128352766,0.5,0.08751932312835276,0,True,True

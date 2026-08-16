@@ -1,127 +1,72 @@
 # Methodology
 
-## Physical model
+## Information flow
 
-The simulated drivetrain contains a motor inertia `Jm`, load inertia `Jl`,
-viscous shaft damping `bv`, and time-varying torsional stiffness `k(t)`. The
-known input is the measured motor-torque profile `Mem(t)`. The governing
-equations are
+The estimator uses time, electromagnetic torque, motor encoder speed, load
+encoder speed, and known `Jm`, `Jl`, and `bv`. Encoder speeds form
+`v_delta = omega_m-omega_l`. Relative angle supervision is derived from those
+speeds with cumulative trapezoidal integration and the known simulation initial
+condition `delta(0)=0`; it is not an additional sensor.
 
-```text
-Jm * theta_m_ddot + bv * (omega_m - omega_l)
-  + k(t) * (theta_m - theta_l) = Mem(t)
+## Reference simulation
 
-Jl * theta_l_ddot - bv * (omega_m - omega_l)
-  - k(t) * (theta_m - theta_l) = 0.
-```
+Only `t` and `Mem` are loaded from `jera1.mat`. A high-accuracy DOP853
+two-inertia simulation produces synthetic `theta_m`, `theta_l`, `omega_m`, and
+`omega_l`. The evaluation reference degrades smoothly from 350 to 245 N m/rad.
+The simulated encoder channels must not be described as experimental
+measurements.
 
-The ODE model produces synthetic encoder responses for simulation validation.
-It does not turn those responses into claims of experimental measurement.
+## RelativeStateNet
 
-## Relative coordinates
+The state network has two physical outputs, `delta_hat` and `v_delta_hat`.
+Separate channel scales prevent the larger velocity amplitude from dominating
+the smaller relative angle. Fixed Fourier time features represent the
+approximately 228-233 Hz torsional content. Multiplication by normalized time
+imposes zero relative angle and relative speed at the initial condition.
 
-The relative angle and speed are
+## Staged optimization
 
-```text
-delta = theta_m - theta_l
-v_delta = omega_m - omega_l.
-```
+1. Pretrain `RelativeStateNet` with state data, first-order kinematic physics,
+   and initial conditions.
+2. For the standard clean/noise experiment, freeze the state network and
+   optimize only the four bounded stiffness parameters with weak physics.
+3. For sparse751+dense physics, pretrain from only 751 labelled sensor times,
+   then jointly fine-tune state and stiffness parameters. The state learning
+   rate is `1e-5`; the stiffness learning rate is `5e-3`.
+4. Use 101-point weak windows, stride 25, and all valid windows.
+5. Select checkpoints and restarts solely by training loss.
 
-Subtracting the two acceleration equations gives the relative dynamic model
+All three deterministic stiffness restarts use seeds 2026, 2027, and 2028 and
+the same neutral physical initialization. No evaluation label participates in
+restart selection.
 
-```text
-dv_delta/dt
-  + bv * (1/Jm + 1/Jl) * v_delta
-  + k(t) * (1/Jm + 1/Jl) * delta
-  - Mem/Jm = 0.
-```
+## Noise experiment
 
-## First-order RelativeStateNet
+The 0.3% case adds seeded differential encoder noise. Its standard deviation is
+`0.003*std(omega_m-omega_l)` and the perturbation is split as `+epsilon/2` and
+`-epsilon/2` between motor and load speeds. It is not independent noise scaled
+by the much larger absolute encoder speeds.
 
-`RelativeStateNet(t)` returns two quantities: `delta_hat(t)` and
-`v_delta_hat(t)`. Separate scales normalize both channels, and fixed Fourier
-time features represent the oscillatory content. The differential kinematic
-constraint is
+## Sparse supervision versus collocation
 
-```text
-d(delta_hat)/dt - v_delta_hat = 0.
-```
+Sensor labels and physics points are different resources. The final reduced
+supervision experiment uses 751 labelled times and 1501 unlabeled collocation
+times. Collocation points contribute only time, known `Mem`, initial
+conditions, and physical residuals; they contain no true state or stiffness
+labels. No state checkpoint trained on 1501 labels is loaded.
 
-Unlike the retained second-order baseline, the proposed branch does not use
-`delta_ddot`. This avoids the observed sensitivity of second-order automatic
-differentiation to small state-approximation errors.
+Consequently, 751 instead of 1501 labels means a 49.97% reduction in sensor
+supervision, not a corresponding reduction in total optimizer work or physics
+collocation.
 
-## Weak integral residual
+## Online update
 
-For each overlapping window `[t_a, t_b]`, trapezoidal integration produces
+The online benchmark freezes the state network and updates only the four
+sigmoid stiffness parameters. At update `i`, the window is `[i-100,i]`; future
+samples are unavailable. The preceding sigmoid and Adam states are warm starts.
+At least 20 updates are executed before timing. `time.perf_counter_ns()` wraps
+only optimizer update work, not offline pretraining or ordinary forward
+inference.
 
-```text
-r_dynamic_weak = v_delta_hat(t_b) - v_delta_hat(t_a)
-  + bv * (1/Jm + 1/Jl) * integral(v_delta_hat dt)
-  + (1/Jm + 1/Jl) * integral(k(t) * delta_hat(t) dt)
-  - (1/Jm) * integral(Mem(t) dt)
-
-r_kinematic_weak = delta_hat(t_b) - delta_hat(t_a)
-  - integral(v_delta_hat dt).
-```
-
-The final configuration uses 101 collocation points, stride 25, and all valid
-overlapping windows. Integrals involving trainable quantities use
-`torch.trapz`, so gradients propagate through the state and stiffness models.
-
-## Sigmoid stiffness parameterization
-
-The monotone degradation model is
-
-```text
-k(t) = k_low + (k_high - k_low)
-       / (1 + exp((t - t_center) / width)).
-```
-
-Sigmoid transforms of unconstrained trainable variables enforce
-
-```text
-210 <= k_low <= k_high <= 367.5 Nm/rad
-0 <= t_center <= T
-0.005*T <= width <= 0.25*T.
-```
-
-Neutral initialization is fixed independently of the reference profile:
-`k_high=330`, `k_low=270`, `t_center=0.5*T`, and `width=0.10*T`.
-
-## Staged sparse supervision
-
-The final reduced-data experiment separates sensor supervision from physics
-collocation:
-
-1. **Phase A:** 751 uniformly spaced encoder-derived labels supervise
-   `delta_hat` and `v_delta_hat`; 1501 unlabeled points impose the kinematic
-   residual and initial conditions.
-2. **Phase B:** `RelativeStateNet` and the four sigmoid parameters are trained
-   jointly. Sparse data loss remains restricted to 751 times, while kinematic
-   and weak dynamic residuals use all 1501 collocation points.
-3. The state network uses a smaller learning rate than the sigmoid parameters.
-4. Checkpoints and restarts are selected only by total training loss.
-
-Collocation points use only time, known `Mem(t)`, and physical residuals. They
-do not contain true state or stiffness labels.
-
-## Causal online benchmark
-
-The online benchmark freezes the offline-pretrained `RelativeStateNet` and
-updates only the four sigmoid stiffness parameters. At update `t_i`, a
-101-sample sliding window contains samples no later than `t_i`; the previous
-parameter and Adam states provide a warm start. Timing with
-`time.perf_counter_ns()` surrounds only the optimizer update. Forward inference
-and offline pretraining are reported separately.
-
-The selected reported setting is stride 50 and five Adam steps per update. It
-demonstrates causal near-real-time monitoring on the tested CPU, not hard
-real-time operation.
-
-## Evaluation policy
-
-`k_true` and the true sigmoid parameters are excluded from all losses,
-initialization, early stopping, checkpoint selection, and restart selection.
-They enter only after training for RMSE, relative RMSE, R², endpoint-error, and
-degradation metrics.
+The final public timing claim uses the repeated 3/4/5-step benchmark and not the
+earlier single-run timing table.

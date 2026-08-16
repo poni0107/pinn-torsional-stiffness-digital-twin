@@ -5,8 +5,8 @@ following column vectors:
 
 | Variable | Expected shape | Use |
 |---|---:|---|
-| `t` | 1501 x 1 | measured time vector |
-| `Mem` | 1501 x 1 | measured motor torque input |
+| `t` | 1501 x 1 | recorded time coordinate |
+| `Mem` | 1501 x 1 | recorded electromagnetic motor-torque input |
 | `THref` | 1501 x 1 | present in the source file but not used in the PINN loss |
 
 Public redistribution permission for `jera1.mat` has not been confirmed. The

@@ -1,0 +1,4 @@
+scenario,sensor_labels,physics_collocation_points,noise_description,k_relative_RMSE_percent,k_R2,initial_stiffness_error_percent,final_stiffness_error_percent,delta_R2,v_delta_R2,source_artifact
+Full-rate clean,1501,1501,none,2.871705971372545,0.9524455407400216,4.912770593585004,0.29621703619357376,0.9702022611147336,0.9982176390409454,results/experiment_metrics/main_metrics.json
+0.3% differential encoder noise,1501,1501,"0.3% of std(omega_m-omega_l), split between encoders",2.903203795005491,0.9513966335683187,4.922639904655431,1.4984504203186695,0.9709726731326258,0.9984279637491904,results/experiment_metrics/noise003_metrics.json
+751 sensor labels + dense physics,751,1501,none,3.748286377203333,0.9189828737602532,4.943562700964272,0.011551833502958474,0.9242709351166742,0.8896940986909945,results/experiment_metrics/sparse751_densephysics_metrics.json

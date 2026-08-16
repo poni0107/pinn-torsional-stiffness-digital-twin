@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "scope": "portable extracts of validated simulation artifacts",
+  "no_training_performed": true,
+  "private_dataset_included": false,
+  "manuscript_included": false,
+  "true_stiffness_usage": "post-training simulation evaluation only",
+  "source_artifacts": [
+    {
+      "path": "results/experiment_metrics/main_metrics.json",
+      "sha256": "fb8798f544f1b7c793d0c24ff1025af012e1af082f5af61ccb54a2360df83f87"
+    },
+    {
+      "path": "results/experiment_metrics/noise003_metrics.json",
+      "sha256": "e0ab8a63636777e0a90ca9617af64bb2bd73d1b96e97501428aee75f67fc3f38"
+    },
+    {
+      "path": "results/experiment_metrics/sparse751_densephysics_metrics.json",
+      "sha256": "d4699a63ff983042180b3e253c43621d9e303daf965be888eda6ad320ff068ff"
+    },
+    {
+      "path": "results/experiment_metrics/online_adam_steps_comparison.json",
+      "sha256": "03b74bb13b330497299d580e1cc5fee02e1669523f0a9d91a7bfbfa94df2a25f"
+    },
+    {
+      "path": "results/experiment_metrics/online_detection_robustness.json",
+      "sha256": "89a618a88699176ee2d4d50386b49371874202985fe27dbd740da64fee2699e8"
+    },
+    {
+      "path": "results/tables/constant_stiffness_results.csv",
+      "sha256": "84ac10d53d4632bf0e73b0e634e7943d140d211fa197f0324624747384d4f19d"
+    },
+    {
+      "path": "results/tables/table_2_constant_stiffness_validation.csv",
+      "sha256": "b4cb4744ab7712958f4542dd1800906fed7dc38f0f77fd60606fe1be4edf9e9a"
+    },
+    {
+      "path": "results/tables/final_sigmoid_results.csv",
+      "sha256": "a7099977f2785ecfb9712f32e0212a51e422c70b4d5c085730402daf8fa4ac91"
+    },
+    {
+      "path": "results/tables/table_4_ablation_study.csv",
+      "sha256": "cabc320a9ebb78787ff81a9c755ba5048bb501b767ba4ea2fa2d415f4887b5c0"
+    },
+    {
+      "path": "results/tables/online_latency_samples_steps345.csv",
+      "sha256": "317eab1769441273bafc3f65ad4acf69c5388ff88cc9eee97d3f810687435713"
+    },
+    {
+      "path": "results/tables/online_stiffness_series_steps345.csv",
+      "sha256": "2e3f03b19d9c558633fc021fe541312e6e0738e9f8c79b88e72ab4a8ede70323"
+    }
+  ],
+  "published_claims": {
+    "constant_stiffness_validation": [
+      "results/tables/constant_stiffness_results.csv",
+      "results/tables/table_2_constant_stiffness_validation.csv"
+    ],
+    "clean_time_varying_degradation": [
+      "results/experiment_metrics/main_metrics.json"
+    ],
+    "noise_0p3_percent": [
+      "results/experiment_metrics/noise003_metrics.json"
+    ],
+    "sparse751_dense_physics": [
+      "results/experiment_metrics/sparse751_densephysics_metrics.json"
+    ],
+    "second_order_baseline": [
+      "results/tables/table_4_ablation_study.csv"
+    ],
+    "sparse_sampling_limitations": [
+      "results/tables/final_sigmoid_results.csv",
+      "results/experiment_metrics/noise003_metrics.json"
+    ],
+    "causal_online_repeated_benchmark": [
+      "results/experiment_metrics/online_adam_steps_comparison.json",
+      "results/tables/online_latency_samples_steps345.csv",
+      "results/tables/online_stiffness_series_steps345.csv"
+    ]
+  },
+  "derived_public_tables": {
+    "results/tables/time_varying_stiffness_summary.csv": [
+      "results/experiment_metrics/main_metrics.json",
+      "results/experiment_metrics/noise003_metrics.json",
+      "results/experiment_metrics/sparse751_densephysics_metrics.json"
+    ],
+    "results/tables/sparse_sampling_summary.csv": [
+      "results/tables/final_sigmoid_results.csv",
+      "results/experiment_metrics/noise003_metrics.json"
+    ],
+    "results/tables/method_comparison.csv": [
+      "results/tables/table_4_ablation_study.csv"
+    ],
+    "results/tables/online_repeated_benchmark.csv": [
+      "results/experiment_metrics/online_adam_steps_comparison.json"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+Parameter,Symbol,Value,Unit,Role
+Motor inertia,Jm,0.00062,kg m^2,Known
+Load inertia,Jl,0.00022,kg m^2,Known
+Viscous torsional damping,bv,0.004,N m s/rad,Known
+Healthy stiffness,k0,350.0,N m/rad,Evaluation reference
+Degraded stiffness,kfinal,245.0,N m/rad,Evaluation reference
+Experiment duration,T,0.75,s,From jera1.mat time vector
+Weak window length,Nw,101.0,samples,50 ms at 2 kHz
+Weak window stride,Ns,25.0,samples,12.5 ms at 2 kHz

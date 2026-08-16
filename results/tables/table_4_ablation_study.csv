@@ -1,0 +1,5 @@
+Method,Identification task,Physics form,Relative k-RMSE [%],k R2,Reported k quantity [N m/rad],Metric scope
+Second-order free profile,Time-varying,Strong differential; delta_ddot,10.866805671516197,0.31905018426357235,291.94600203359363,Direct saved inverse result
+First-order differential,Constant k=300,Strong differential; d(v_delta)/dt,not available,not available,312.09798994974875,Landscape minimum only
+Weak first-order constant,Constant k=300,"Weak integral, 101 points",not applicable,not applicable,300.22613065326635,Landscape; optimized estimate 300.2400
+Weak first-order sigmoid,Time-varying,"Weak integral, 101 points",2.871705971372545,0.9524455407400216,244.27426826132574,Proposed model
