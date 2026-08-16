@@ -1,0 +1,17 @@
+[experiment]
+name = "noise_0p3pct"
+stiffness_profile = "sigmoid"
+relative_formulation = "first_order"
+first_order_physics = "weak"
+sigmoid_robustness = "noise003"
+noise = 0.003
+noise_seed = 3030
+measurements = 1501
+collocation_points = 1501
+pretrain_epochs = 6500
+epochs = 6000
+finetune_epochs = 0
+sigmoid_seeds = [2026, 2027, 2028]
+sigmoid_lr = 0.005
+outdir = "outputs/first_order_weak_sigmoid_noise003"
+

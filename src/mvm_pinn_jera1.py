@@ -6,7 +6,7 @@ responses are synthetic ODE data. THref is intentionally not used in any loss.
 from __future__ import annotations
 
 import argparse, copy, csv, hashlib, json, math, os, platform, random, sys, time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +14,24 @@ import torch
 from scipy.integrate import cumulative_trapezoid, solve_ivp
 from scipy.interpolate import interp1d
 from scipy.io import loadmat
+
+from pinn_torsional_twin.config import ExperimentConfig
+from pinn_torsional_twin.data import load_input as load_input_modular
+from pinn_torsional_twin.data import measurements as measurements_modular
+from pinn_torsional_twin.models import (
+    ConstantStiffness as ConstantStiffnessModular,
+    DeltaNet as DeltaNetModular,
+    RelativeStateNet as RelativeStateNetModular,
+    StiffnessNet as StiffnessNetModular,
+    WeakSigmoidStiffness as WeakSigmoidStiffnessModular,
+)
+from pinn_torsional_twin.physics.two_inertia import simulate as simulate_modular
+from pinn_torsional_twin.physics.two_inertia import true_k as true_k_modular
+from pinn_torsional_twin.physics.weak import (
+    build_constant_weak_terms,
+    build_sigmoid_weak_terms,
+    weak_sigmoid_losses as weak_sigmoid_losses_modular,
+)
 
 
 REPO_ROOT=Path(__file__).resolve().parents[1]
@@ -24,36 +42,14 @@ FINAL_TABLES_DIR=RESULTS_DIR/"tables"
 FINAL_FIGURES_DIR=RESULTS_DIR/"figures"
 
 
-@dataclass
-class Config:
-    mat_file: str
-    Jm: float = 6.20e-4
-    Jl: float = 2.20e-4
-    bv: float = 4.00e-3
-    k0: float = 350.0
-    k_final: float = 245.0
-    center_fraction: float = 0.55
-    width_fraction: float = 0.055
-    kappa_min: float = 0.60
-    kappa_max: float = 1.05
-    collocation_points: int = 1501
-    measurements: int = 121
-    noise: float = 0.003
-    pretrain_epochs: int = 2000
-    epochs: int = 6000
-    finetune_epochs: int = 2000
-    lr_delta: float = 1e-4
-    lr_stiffness: float = 1e-5
-    seed: int = 2026
-    min_pretrain_r2: float = 0.95
-    max_pretrain_relative_rmse: float = 0.10
+Config = ExperimentConfig
 
 
 def seed_all(seed):
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
 
 
-def load_input(path: Path):
+def _legacy_load_input(path: Path):
     d=loadmat(path)
     if "t" not in d or "Mem" not in d: raise KeyError("jera1.mat mora sadržati t i Mem")
     t=np.asarray(d["t"],float).squeeze(); u=np.asarray(d["Mem"],float).squeeze()
@@ -63,14 +59,14 @@ def load_input(path: Path):
     return t-t[0],u
 
 
-def true_k(t,T,c):
+def _legacy_true_k(t,T,c):
     x=np.asarray(t,float); center=c.center_fraction*T; width=c.width_fraction*T
     s=1/(1+np.exp(-(x-center)/width));s0=1/(1+np.exp(center/width));s1=1/(1+np.exp(-(T-center)/width))
     p=np.clip((s-s0)/(s1-s0),0,1)
     return c.k0+(c.k_final-c.k0)*p
 
 
-def simulate(t,u,c,k_profile,*,rtol=1e-9,atol=1e-11,max_step_divisor=2000):
+def _legacy_simulate(t,u,c,k_profile,*,rtol=1e-9,atol=1e-11,max_step_divisor=2000):
     ui=interp1d(t,u,kind="linear",bounds_error=False,fill_value=(u[0],u[-1]));T=float(t[-1])
     def rhs(x,y):
         tm,wm,tl,wl=y;k=float(k_profile(x));shaft=k*(tm-tl)+c.bv*(wm-wl)
@@ -136,7 +132,7 @@ def identifiability_test(t,u,c,outdir):
     print("Identifiability metrics:\n"+json.dumps(rows,indent=2));return rows
 
 
-def measurements(ref,c,seed=None,relative_noise=False,uniform_times=False):
+def _legacy_measurements(ref,c,seed=None,relative_noise=False,uniform_times=False):
     n=min(max(2,c.measurements),len(ref["t"]));rng=np.random.default_rng(c.seed)
     if uniform_times:
         measurement_t=np.linspace(float(ref["t"][0]),float(ref["t"][-1]),n)
@@ -163,7 +159,7 @@ def init_linear(m):
     if isinstance(m,torch.nn.Linear):torch.nn.init.xavier_normal_(m.weight);torch.nn.init.zeros_(m.bias)
 
 
-class DeltaNet(torch.nn.Module):
+class _LegacyDeltaNet(torch.nn.Module):
     def __init__(self):
         super().__init__()
         # Torsional mode is about 175 cycles over the 0.75 s record. Fixed
@@ -177,7 +173,7 @@ class DeltaNet(torch.nn.Module):
         return tau*self.net(features) # delta_n(0)=0
 
 
-class StiffnessNet(torch.nn.Module):
+class _LegacyStiffnessNet(torch.nn.Module):
     def __init__(self,c):
         super().__init__();self.c=c;self.net=torch.nn.Sequential(torch.nn.Linear(1,32),torch.nn.Tanh(),torch.nn.Linear(32,32),torch.nn.Tanh(),torch.nn.Linear(32,1));self.net.apply(init_linear)
         last=self.net[-1];torch.nn.init.zeros_(last.weight)
@@ -187,7 +183,7 @@ class StiffnessNet(torch.nn.Module):
         return 1.0+tau*(raw-1.0) # kappa(0)=1 exactly
 
 
-class ConstantStiffness(torch.nn.Module):
+class _LegacyConstantStiffness(torch.nn.Module):
     """One bounded trainable scalar, independent of time."""
     def __init__(self,c,initial=288.75):
         super().__init__();self.c=c;self.initial_k_const=float(initial);lo=c.kappa_min*c.k0;hi=c.kappa_max*c.k0
@@ -199,7 +195,7 @@ class ConstantStiffness(torch.nn.Module):
     def forward(self,tau):return (self.value()/self.c.k0)*torch.ones_like(tau)
 
 
-class WeakSigmoidStiffness(torch.nn.Module):
+class _LegacyWeakSigmoidStiffness(torch.nn.Module):
     """Four bounded physical parameters for a monotonically decreasing k(t)."""
     def __init__(self,duration,k_high_init=330.0,k_low_init=270.0,
                  center_fraction_init=0.50,width_fraction_init=0.10,
@@ -237,7 +233,7 @@ class WeakSigmoidStiffness(torch.nn.Module):
         return p["k_low"]+(p["k_high"]-p["k_low"])*torch.sigmoid((p["t_center"]-t)/p["width"])
 
 
-class RelativeStateNet(torch.nn.Module):
+class _LegacyRelativeStateNet(torch.nn.Module):
     """First-order state model with physical outputs delta and v_delta."""
     def __init__(self,delta_scale,v_scale):
         super().__init__();self.delta_scale=float(delta_scale);self.v_scale=float(v_scale)
@@ -250,6 +246,20 @@ class RelativeStateNet(torch.nn.Module):
         features=torch.cat((tau,torch.sin(phase),torch.cos(phase)),dim=1)
         raw=tau*self.net(features)  # known delta(0)=v_delta(0)=0
         return torch.cat((raw[:,:1]*self.delta_scale,raw[:,1:]*self.v_scale),dim=1)
+
+
+# The modular implementations below are the runtime source of truth. The
+# original definitions above are retained in this compatibility entry point
+# during the staged refactor so historical script usage remains auditable.
+load_input=load_input_modular
+true_k=true_k_modular
+simulate=simulate_modular
+measurements=measurements_modular
+DeltaNet=DeltaNetModular
+StiffnessNet=StiffnessNetModular
+ConstantStiffness=ConstantStiffnessModular
+WeakSigmoidStiffness=WeakSigmoidStiffnessModular
+RelativeStateNet=RelativeStateNetModular
 
 
 def derivative(y,x):return torch.autograd.grad(y,x,torch.ones_like(y),create_graph=True)[0]
@@ -798,20 +808,8 @@ def build_frozen_weak_terms(state_net,z,c,window_length=101):
     for p in state_net.parameters():p.requires_grad_(False)
     tau=z["tau"].detach();t=tau.squeeze()*z["T"]
     with torch.no_grad():state=state_net(tau);delta,v=state[:,:1],state[:,1:]
-    mem=z["mem"].detach();invsum=1/c.Jm+1/c.Jl;stride=max(1,window_length//4)
-    A=[];B=[];Rkin=[]
-    for start in range(0,len(t)-window_length+1,stride):
-        stop=start+window_length;tw=t[start:stop]
-        int_delta=torch.trapz(delta[start:stop,0],tw)
-        int_v=torch.trapz(v[start:stop,0],tw)
-        int_mem=torch.trapz(mem[start:stop,0],tw)
-        A.append(invsum*int_delta)
-        B.append((v[stop-1,0]-v[start,0])+c.bv*invsum*int_v-int_mem/c.Jm)
-        Rkin.append((delta[stop-1,0]-delta[start,0])-int_v)
-    A,B,Rkin=torch.stack(A),torch.stack(B),torch.stack(Rkin)
-    return {"A":A,"B":B,"Rkin":Rkin,"window_length":window_length,"stride":stride,
-            "window_count":len(A),"dynamic_scale":torch.sqrt(torch.mean(B**2)).clamp_min(1e-12),
-            "kinematic_scale":max(z["delta_scale"],1e-12)}
+    return build_constant_weak_terms(t,delta,v,z["mem"].detach(),c,
+        window_length=window_length,stride=max(1,window_length//4),delta_scale=z["delta_scale"])
 
 
 def train_first_order_weak_constant(state_net,z,c,epochs,patience=500,min_delta=1e-14):
@@ -916,33 +914,12 @@ def build_frozen_weak_sigmoid_terms(state_net,z,c,window_length=101,stride=25):
     tau=z["tau"].detach();t=tau.squeeze()*z["T"]
     with torch.no_grad():
         state=state_net(tau);delta,v=state[:,:1],state[:,1:]
-    mem=z["mem"].detach();invsum=1/c.Jm+1/c.Jl
-    t_windows=[];delta_windows=[];B=[];Rkin=[]
-    for start in range(0,len(t)-window_length+1,stride):
-        stop=start+window_length;tw=t[start:stop];dw=delta[start:stop,0];vw=v[start:stop,0]
-        int_v=torch.trapz(vw,tw);int_mem=torch.trapz(mem[start:stop,0],tw)
-        t_windows.append(tw);delta_windows.append(dw)
-        B.append((v[stop-1,0]-v[start,0])+c.bv*invsum*int_v-int_mem/c.Jm)
-        Rkin.append((delta[stop-1,0]-delta[start,0])-int_v)
-    B,Rkin=torch.stack(B),torch.stack(Rkin)
-    return {"t_windows":torch.stack(t_windows),"delta_windows":torch.stack(delta_windows),"B":B,"Rkin":Rkin,
-            "invsum":invsum,"duration":float(z["T"]),"window_length":window_length,"stride":stride,"window_count":len(B),
-            "weak_grid_points":int(len(t)),"weak_grid_step_seconds":float(t[1]-t[0]),
-            "window_duration_seconds":float(t[window_length-1]-t[0]),
-            "stride_duration_seconds":float(stride*(t[1]-t[0])),
-            "window_selection":"all","dynamic_scale":torch.sqrt(torch.mean(B**2)).clamp_min(1e-12),
-            "kinematic_scale":max(z["delta_scale"],1e-12)}
+    return build_sigmoid_weak_terms(t,delta,v,z["mem"].detach(),c,duration=z["T"],
+        window_length=window_length,stride=stride,delta_scale=z["delta_scale"])
 
 
 def weak_sigmoid_losses(model,terms):
-    # Each row is one overlapping window; dim=1 performs an independent
-    # trapezoidal integral for every window while retaining autograd.
-    stiffness_integrals=torch.trapz(model(terms["t_windows"])*terms["delta_windows"],
-                                    terms["t_windows"],dim=1)
-    weak_dynamic=terms["B"]+terms["invsum"]*stiffness_integrals
-    dynamic=torch.mean((weak_dynamic/terms["dynamic_scale"])**2)
-    kinematic=torch.mean((terms["Rkin"]/terms["kinematic_scale"])**2)
-    return dynamic,kinematic,dynamic+kinematic
+    return weak_sigmoid_losses_modular(model,terms)
 
 
 def train_weak_sigmoid_restart(terms,c,seed,epochs,learning_rate=5e-3,patience=1000,min_delta=1e-14):

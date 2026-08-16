@@ -1,0 +1,13 @@
+[experiment]
+name = "online_benchmark"
+stiffness_profile = "sigmoid"
+relative_formulation = "first_order"
+first_order_physics = "weak"
+noise = 0.0
+measurements = 1501
+online_benchmark = true
+online_strides = [25, 50, 100]
+online_adam_steps = [1, 5, 10, 20]
+relative_state_checkpoint = "outputs/first_order_weak_sigmoid_main/relative_state_pretrained_sigmoid.pt"
+outdir = "outputs/online_benchmark"
+

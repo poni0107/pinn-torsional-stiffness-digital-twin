@@ -1,0 +1,16 @@
+[experiment]
+name = "sparse751_dense_physics"
+stiffness_profile = "sigmoid"
+relative_formulation = "first_order"
+first_order_physics = "weak"
+sigmoid_robustness = "sparse751_densephysics"
+noise = 0.0
+measurements = 751
+collocation_points = 1501
+pretrain_epochs = 6500
+epochs = 6000
+finetune_epochs = 0
+sigmoid_seeds = [2026, 2027, 2028]
+sigmoid_lr = 0.005
+outdir = "outputs/first_order_weak_sigmoid_sparse751_densephysics"
+
